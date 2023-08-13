@@ -528,7 +528,7 @@ smol_pixel_t smol_pixel_blend_mix(smol_pixel_t dst, smol_pixel_t src, smol_u32 x
 	smol_u32 isa = 0xFF - src.a;
 	smol_u32 sa =  0x00 + src.a;
 
-	smol_u8 r = (sa * src.r + isa * dst.a) / 255U;
+	smol_u8 r = (sa * src.r + isa * dst.r) / 255U;
 	smol_u8 g = (sa * src.g + isa * dst.g) / 255U;
 	smol_u8 b = (sa * src.b + isa * dst.b) / 255U;
 	smol_u8 a = (sa * src.a + isa * dst.a) / 255U;
