@@ -9,6 +9,9 @@
 #error Please include smol_utils before smol_gui
 #endif
 
+#include <math.h>
+#include <assert.h>
+
 typedef struct _smol_grect_t {
     int x, y, width, height;
 } smol_grect_t;
@@ -33,6 +36,12 @@ void smol_rectcut_expand(smol_rectcut_t* rect, int a);
 
 #define smol_to_rect(rectcut) (smol_rect_t){ rectcut.minx, rectcut.miny, rectcut.maxx - rectcut.minx, rectcut.maxy - rectcut.miny }
 #define smol_from_rect(rec) (smol_rectcut_t){ rec.x, rec.y, rec.width + rec.x, rec.height + rec.y }
+
+typedef enum _smol_gui_text_align {
+    SMOL_GUI_TEXT_ALIGN_NEAR = 0,
+    SMOL_GUI_TEXT_ALIGN_CENTER,
+    SMOL_GUI_TEXT_ALIGN_FAR
+} smol_gui_text_align;
 
 typedef enum _smol_gui_drag_axis {
     SMOL_GUI_DRAG_AXIS_X = (1 << 0),
@@ -93,17 +102,17 @@ static const smol_gui_style_t gui_theme_default_styles[SMOL_GUI_STYLE_PATCH_TYPE
     },
 
     { // SMOL_GUI_STYLE_PATCH_TYPE_PRIMARY_CONTAINER
-        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
-        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
-        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
-        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH }
-    },
-
-    { // SMOL_GUI_STYLE_PATCH_TYPE_SECONDARY_CONTAINER
         { { 40, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
         { { 40, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
         { { 40, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
         { { 40, 0, 8, 8 }, { 2, 2, 2, 2 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH }
+    },
+
+    { // SMOL_GUI_STYLE_PATCH_TYPE_SECONDARY_CONTAINER
+        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 255, 255, 255, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
+        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 255, 255, 255, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
+        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 255, 255, 255, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
+        { { 32, 0, 8, 8 }, { 2, 2, 2, 2 }, { 255, 255, 255, 255 }, SMOL_GUI_STYLE_TYPE_PATCH }
     },
 
     { // SMOL_GUI_STYLE_PATCH_TYPE_TERTIARY_CONTAINER
@@ -121,10 +130,10 @@ static const smol_gui_style_t gui_theme_default_styles[SMOL_GUI_STYLE_PATCH_TYPE
     },
 
     { // SMOL_GUI_STYLE_PATCH_TYPE_PROGRESS_BAR
-        { { 56, 0, 8, 8 }, { 0, 0, 0, 0 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
-        { { 56, 0, 8, 8 }, { 0, 0, 0, 0 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
-        { { 56, 0, 8, 8 }, { 0, 0, 0, 0 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
-        { { 56, 0, 8, 8 }, { 0, 0, 0, 0 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH }
+        { { 56, 0, 8, 8 }, { 1, 1, 1, 1 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
+        { { 56, 0, 8, 8 }, { 1, 1, 1, 1 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
+        { { 56, 0, 8, 8 }, { 1, 1, 1, 1 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH },
+        { { 56, 0, 8, 8 }, { 1, 1, 1, 1 }, { 0, 0, 0, 255 }, SMOL_GUI_STYLE_TYPE_PATCH }
     },
 
     { // SMOL_GUI_STYLE_PATCH_TYPE_SHADOW
@@ -182,14 +191,6 @@ void smol_gui_end(smol_gui_t* gui);
 void smol_gui_input_mouse_move(smol_gui_t* gui, smol_point_t position, smol_point_t delta);
 void smol_gui_input_mouse_click(smol_gui_t* gui, int clicked);
 
-int smol_gui_is_mouse_down(smol_gui_t* gui, int wid);
-int smol_gui_clickable_area(smol_gui_t* gui, const char* id, smol_grect_t bounds);
-
-int smol_gui_button(
-    smol_gui_t* gui, const char* id, const char* text,
-    smol_grect_t bounds
-);
-
 void smol_gui_draw_style(
     smol_gui_t* gui,
     smol_gui_style_patch_type patchType,
@@ -197,7 +198,80 @@ void smol_gui_draw_style(
     smol_grect_t bounds
 );
 
+int smol_gui_is_mouse_down(smol_gui_t* gui, int wid);
+int smol_gui_clickable_area(smol_gui_t* gui, const char* id, smol_grect_t bounds);
+int smol_gui_holdable_area(smol_gui_t* gui, const char* id, smol_grect_t bounds);
+
+int smol_gui_xdrag_area(smol_gui_t* gui, const char* id, smol_grect_t bounds);
+int smol_gui_ydrag_area(smol_gui_t* gui, const char* id, smol_grect_t bounds);
+int smol_gui_draggable_area(
+    smol_gui_t* gui, const char* id,
+    smol_gui_drag_axis axis,
+    smol_grect_t bounds,
+    int* outX, int* outY,
+    double xStep, double yStep
+);
+
+int smol_gui_button(
+    smol_gui_t* gui, const char* id, const char* text,
+    smol_grect_t bounds
+);
+
+typedef struct _smol_number_t smol_number_t;
+
+smol_number_t smol_number_add(smol_number_t a, smol_number_t b);
+smol_number_t smol_number_sub(smol_number_t a, smol_number_t b);
+smol_number_t smol_number_mul(smol_number_t a, smol_number_t b);
+smol_number_t smol_number_div(smol_number_t a, smol_number_t b);
+smol_number_t smol_number_muls(smol_number_t a, double b);
+smol_number_t smol_number_round(smol_number_t a);
+smol_number_t smol_number_min(smol_number_t a, smol_number_t b);
+smol_number_t smol_number_max(smol_number_t a, smol_number_t b);
+smol_number_t smol_number_snap(smol_number_t a, smol_number_t step);
+int smol_number_diff(smol_number_t a, smol_number_t b);
+double smol_number_norm(smol_number_t value, smol_number_t minValue, smol_number_t maxValue);
+
+int smol_gui_slideri(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    smol_i64* value,
+    smol_i64 minValue, smol_i64 maxValue,
+    smol_i64 step
+);
+
+int smol_gui_sliderf(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    float* value,
+    float minValue, float maxValue,
+    float step
+);
+
+int smol_gui_sliderd(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    double* value,
+    double minValue, double maxValue,
+    double step
+);
+
+#define SMOL_GUI_SLIDER_SENS 0.55
+#define SMOL_GUI_INVALID_WIDGET -1
+
 #ifdef SMOL_GUI_IMPLEMENTATION
+typedef struct _smol_number_t {
+    enum {
+        SMOL_NUMBER_TYPE_INT = 0,
+        SMOL_NUMBER_TYPE_FLOAT,
+        SMOL_NUMBER_TYPE_DOUBLE
+    } type;
+
+    union {
+        smol_i64 intValue;
+        float floatValue;
+        double doubleValue;
+    };
+} smol_number_t;
 
 // https://gist.github.com/sgsfak/9ba382a0049f6ee885f68621ae86079b
 smol_u32 fnv32_hash(const char *str) {
@@ -304,26 +378,26 @@ smol_gui_theme_t smol_gui_theme_load_default() {
     static const unsigned char* gui_theme_b64 =
         "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
         "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
-        "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP//p43//6eN//+njf//p43//6eN//+njf//p43//6eN/wAAAP/Jycn/ycnJ/8nJyf/Jycn/ycnJ/8nJyf8AAAD/"
+        "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/Jycn/ycnJ/8nJyf/Jycn/ycnJ/8nJyf8AAAD/"
         "AAAA//Dw8P/w8PD/8PDw//Dw8P/w8PD/8PDw/wAAAP8AAAD/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/AAAA/wAAAP+Tk5P/k5OT/5OTk/+Tk5P/k5OT/5OTk/8AAAD/"
         "AAAA/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/wAAAP8AAAD/2tra/9ra2v/a2tr/2tra/9ra2v/a2tr/AAAA/wAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/"
-        "/6GG//+hhv//oYb//6GG//+hhv//oYb//6GG//+hhv8AAAD/ycnJ/8nJyf/Jycn/ycnJ/8nJyf/Jycn/AAAA/wAAAP/w8PD/8PDw//Dw8P/w8PD/8PDw//Dw8P8AAAD/"
+        "AAAAAP+njf//p43//6eN//+njf//p43//6eN/wAAAAAAAAD/ycnJ/8nJyf/Jycn/ycnJ/8nJyf/Jycn/AAAA/wAAAP/w8PD/8PDw//Dw8P/w8PD/8PDw//Dw8P8AAAD/"
         "AAAA/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/wAAAP8AAAD/k5OT/5OTk/+Tk5P/k5OT/5OTk/+Tk5P/AAAA/wAAAP9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf8AAAD/"
-        "AAAA/9zc3P/c3Nz/3Nzc/9zc3P/c3Nz/3Nzc/wAAAP8AAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//+hhv//oYb//6GG//+hhv//oIP//6GE//+ghf//oYb/"
+        "AAAA/9zc3P/c3Nz/3Nzc/9zc3P/c3Nz/3Nzc/wAAAP8AAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAD/oYb//6GG//+hhv//oIP//6GE//+hhv8AAAAA"
         "AAAA/8nJyf/Jycn/ycnJ/8nJyf/Jycn/ycnJ/wAAAP8AAAD/8PDw//Dw8P/w8PD/8PDw//Dw8P/w8PD/AAAA/wAAAP9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf8AAAD/"
         "AAAA/5OTk/+Tk5P/k5OT/5OTk/+Tk5P/k5OT/wAAAP8AAAD/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/AAAA/wAAAP/c3Nz/3Nzc/9zc3P/c3Nz/3Nzc/9zc3P8AAAD/"
-        "AAAA/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/7mHn/+5h5//uYef/7mHn/+5h5//uYef/7mHn/+5h5/wAAAP/Jycn/ycnJ/8nJyf/Jycn/ycnJ/8nJyf8AAAD/"
+        "AAAA/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8AAAAA+5h5//uYef/7mHn/+5h5//uYef/7mHn/AAAAAAAAAP/Jycn/ycnJ/8nJyf/Jycn/ycnJ/8nJyf8AAAD/"
         "AAAA//Dw8P/w8PD/8PDw//Dw8P/w8PD/8PDw/wAAAP8AAAD/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/AAAA/wAAAP+Tk5P/k5OT/5OTk/+Tk5P/k5OT/5OTk/8AAAD/"
         "AAAA/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/wAAAP8AAAD/3Nzc/9zc3P/c3Nz/3Nzc/9zc3P/c3Nz/AAAA/wAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/"
-        "9o9t//aPbf/2j23/9o9t//aPbf/2j23/9o9t//aPbf8AAAD/ycnJ/8nJyf/Jycn/ycnJ/8nJyf/Jycn/AAAA/wAAAP/w8PD/8PDw//Dw8P/w8PD/8PDw//Dw8P8AAAD/"
+        "AAAAAPaPbf/2j23/9o9t//aPbf/2j23/9o9t/wAAAAAAAAD/ycnJ/8nJyf/Jycn/ycnJ/8nJyf/Jycn/AAAA/wAAAP/w8PD/8PDw//Dw8P/w8PD/8PDw//Dw8P8AAAD/"
         "AAAA/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/wAAAP8AAAD/k5OT/5OTk/+Tk5P/k5OT/5OTk/+Tk5P/AAAA/wAAAP9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf8AAAD/"
-        "AAAA/9zc3P/c3Nz/3Nzc/9zc3P/c3Nz/3Nzc/wAAAP8AAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/++BXP/vgl3/74Ne/++CXv/vg17/74Rh/++EYP/vgV3/"
+        "AAAA/9zc3P/c3Nz/3Nzc/9zc3P/c3Nz/3Nzc/wAAAP8AAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAADvgVz/74Ne/++CXv/vg17/74Rh/++BXf8AAAAA"
         "AAAA/8nJyf/Jycn/ycnJ/8nJyf/Jycn/ycnJ/wAAAP8AAAD/8PDw//Dw8P/w8PD/8PDw//Dw8P/w8PD/AAAA/wAAAP9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf8AAAD/"
         "AAAA/5OTk/+Tk5P/k5OT/5OTk/+Tk5P/k5OT/wAAAP8AAAD/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/AAAA/wAAAP/c3Nz/3Nzc/9zc3P/c3Nz/3Nzc/9zc3P8AAAD/"
-        "AAAA/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/vgVz/74Fc/++BXP/vgVz/74Fc/++BXf/vgV3/74Fc/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
+        "AAAA/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8AAAAA84Jo//OCaP/zgmj/84Jo//KCZ/3zgmj/AAAAAAAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
         "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
         "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
-        "84Jo//OCaP/zgmj/84Jo//OCaP/ygmf98oFn/vOCaP8AAAABAAAABAAAAAkAAAALAAAACwAAAAkAAAAEAAAAAgAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAABAAAAAkAAAALAAAACwAAAAkAAAAEAAAAAgAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
         "AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/AAAA/wAAAP8AAAD/"
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         "AAAABAAAAAwAAAAbAAAAIgAAACIAAAAbAAAADAAAAAUAAAD/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf9FRUX/RUVF/0VFRf8AAAD/"
@@ -494,7 +568,25 @@ void smol_gui_draw_style(
     }
 }
 
-#define SMOL_GUI_INVALID_WIDGET -1
+static void smol_gui_draw_text_ww(
+    smol_gui_t* gui,
+    const char* text,
+    smol_gui_text_align halign,
+    smol_gui_text_align valign,
+    smol_gui_style_patch_type patchType,
+    smol_gui_widget_state widgetState,
+    smol_grect_t bounds
+) {
+    const char* delim = " \t";
+
+    size_t len = strlen(text);
+    char* ptr = strtok(text, delim);
+
+    while (ptr) {
+        
+        ptr = strtok(NULL, delim);
+    }
+}
 
 void smol_gui_begin(smol_gui_t* gui) {
     if (!gui->mouseClicked) gui->hoveredId = SMOL_GUI_INVALID_WIDGET;
@@ -517,6 +609,149 @@ void smol_gui_input_mouse_click(smol_gui_t* gui, int clicked) {
     gui->mouseClicked = clicked;
 }
 
+#define _SMOL_NUMBER_OP(op) switch (res.type) { \
+    case SMOL_NUMBER_TYPE_INT: res.intValue = a.intValue op b.intValue; break; \
+    case SMOL_NUMBER_TYPE_FLOAT: res.floatValue = a.floatValue op b.floatValue; break; \
+    case SMOL_NUMBER_TYPE_DOUBLE: res.doubleValue = a.doubleValue op b.doubleValue; break; \
+}
+
+smol_number_t smol_number_add(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+
+    smol_number_t res;
+    res.type = a.type;
+
+    _SMOL_NUMBER_OP(+)
+
+    return res;
+}
+
+smol_number_t smol_number_sub(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+
+    smol_number_t res;
+    res.type = a.type;
+
+    _SMOL_NUMBER_OP(-)
+
+    return res;
+}
+
+smol_number_t smol_number_mul(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+
+    smol_number_t res;
+    res.type = a.type;
+
+    _SMOL_NUMBER_OP(*)
+
+    return res;
+}
+
+smol_number_t smol_number_div(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+
+    smol_number_t res;
+    res.type = a.type;
+
+    _SMOL_NUMBER_OP(/)
+
+    return res;
+}
+
+smol_number_t smol_number_muls(smol_number_t a, double b) {
+    smol_number_t res;
+    res.type = a.type;
+
+    switch (res.type) {
+        case SMOL_NUMBER_TYPE_INT: res.intValue = (int)((double)a.intValue * b); break;
+        case SMOL_NUMBER_TYPE_FLOAT: res.floatValue = a.floatValue * (float)b; break;
+        case SMOL_NUMBER_TYPE_DOUBLE: res.doubleValue = a.doubleValue * b; break;
+    }
+
+    return res;
+}
+
+smol_number_t smol_number_round(smol_number_t a) {
+    smol_number_t res;
+    res.type = a.type;
+
+    switch (res.type) {
+        case SMOL_NUMBER_TYPE_INT: res.intValue = a.intValue; break;
+        case SMOL_NUMBER_TYPE_FLOAT: res.floatValue = roundf(a.floatValue); break;
+        case SMOL_NUMBER_TYPE_DOUBLE: res.doubleValue = round(a.doubleValue); break;
+    }
+
+    return res;
+}
+
+smol_number_t smol_number_min(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+    smol_number_t res;
+    res.type = a.type;
+    switch (res.type) {
+        case SMOL_NUMBER_TYPE_INT: res.intValue = min(a.intValue, b.intValue); break;
+        case SMOL_NUMBER_TYPE_FLOAT: res.floatValue = min(a.floatValue, b.floatValue); break;
+        case SMOL_NUMBER_TYPE_DOUBLE: res.doubleValue = min(a.doubleValue, b.doubleValue); break;
+    }
+    return res;
+}
+
+smol_number_t smol_number_max(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+    smol_number_t res;
+    res.type = a.type;
+    switch (res.type) {
+        case SMOL_NUMBER_TYPE_INT: res.intValue = max(a.intValue, b.intValue); break;
+        case SMOL_NUMBER_TYPE_FLOAT: res.floatValue = max(a.floatValue, b.floatValue); break;
+        case SMOL_NUMBER_TYPE_DOUBLE: res.doubleValue = max(a.doubleValue, b.doubleValue); break;
+    }
+    return res;
+}
+
+smol_number_t smol_number_snap(smol_number_t a, smol_number_t step) {
+    assert(a.type == step.type);
+
+    smol_number_t res;
+    res.type = a.type;
+
+    switch (res.type) {
+        case SMOL_NUMBER_TYPE_INT: {
+            res.intValue = (int)((double)(a.intValue / step.intValue) * (double)step.intValue);
+        } break;
+        case SMOL_NUMBER_TYPE_FLOAT: {
+            res.floatValue = a.floatValue;
+            res.floatValue -= fmodf(res.floatValue, step.floatValue);
+        } break;
+        case SMOL_NUMBER_TYPE_DOUBLE: {
+            res.doubleValue = a.doubleValue;
+            res.doubleValue -= fmod(res.doubleValue, step.doubleValue);
+        } break;
+    }
+    return res;
+}
+
+int smol_number_diff(smol_number_t a, smol_number_t b) {
+    assert(a.type == b.type);
+    switch (a.type) {
+        case SMOL_NUMBER_TYPE_INT: return a.intValue != b.intValue;
+        case SMOL_NUMBER_TYPE_FLOAT: return a.floatValue != b.floatValue;
+        case SMOL_NUMBER_TYPE_DOUBLE: return a.doubleValue != b.doubleValue;
+    }
+}
+
+double smol_number_norm(smol_number_t value, smol_number_t minValue, smol_number_t maxValue) {
+    assert(value.type == minValue.type);
+    assert(value.type == maxValue.type);
+    assert(maxValue.type == minValue.type);
+
+    switch (value.type) {
+        case SMOL_NUMBER_TYPE_INT: return (double)(value.intValue - minValue.intValue) / (maxValue.intValue - minValue.intValue);
+        case SMOL_NUMBER_TYPE_FLOAT: return (double)(value.floatValue - minValue.floatValue) / (maxValue.floatValue - minValue.floatValue);
+        case SMOL_NUMBER_TYPE_DOUBLE: return (value.doubleValue - minValue.doubleValue) / (maxValue.doubleValue - minValue.doubleValue);
+    }
+}
+
 int smol_gui_is_mouse_down(smol_gui_t* gui, int wid) {
     return gui->hoveredId == wid && gui->activeId == wid;
 }
@@ -537,6 +772,92 @@ int smol_gui_clickable_area(smol_gui_t* gui, const char* id, smol_grect_t bounds
     }
 
     return 0;
+}
+
+int smol_gui_holdable_area(smol_gui_t* gui, const char* id, smol_grect_t bounds) {
+    smol_u32 wid = fnv32_hash(id);
+
+    if (smol_rect_has_point(bounds, gui->mousePosition)) {
+        gui->hoveredId = wid;
+
+        if (gui->mouseClicked) {
+            gui->activeId = wid;
+        }
+    }
+
+    if (gui->mouseClicked && smol_gui_is_mouse_down(gui, wid)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int smol_gui_xdrag_area(smol_gui_t* gui, const char* id, smol_grect_t bounds) {
+    smol_u32 wid = fnv32_hash(id);
+
+    if (smol_rect_has_point(bounds, gui->mousePosition)) {
+        gui->hoveredId = wid;
+
+        if (gui->mouseClicked && gui->activeId == SMOL_GUI_INVALID_WIDGET) {
+            gui->activeId = wid;
+        }
+    }
+
+    if (gui->mouseClicked && smol_gui_is_mouse_down(gui, wid) && abs(gui->mouseDelta.x) > 0) {
+        return gui->mouseDelta.x;
+    }
+
+    return 0;
+}
+
+int smol_gui_ydrag_area(smol_gui_t* gui, const char* id, smol_grect_t bounds) {
+    smol_u32 wid = fnv32_hash(id);
+
+    if (smol_rect_has_point(bounds, gui->mousePosition)) {
+        gui->hoveredId = wid;
+
+        if (gui->mouseClicked && gui->activeId == SMOL_GUI_INVALID_WIDGET) {
+            gui->activeId = wid;
+        }
+    }
+
+    if (gui->mouseClicked && smol_gui_is_mouse_down(gui, wid) && abs(gui->mouseDelta.y) > 0) {
+        return gui->mouseDelta.y;
+    }
+
+    return 0;
+}
+
+int smol_gui_draggable_area(
+    smol_gui_t* gui, const char* id,
+    smol_gui_drag_axis axis,
+    smol_grect_t bounds,
+    int* outX, int* outY,
+    double xStep, double yStep
+) {
+    smol_u32 wid = fnv32_hash(id);
+
+    if (smol_rect_has_point(bounds, gui->mousePosition)) {
+        gui->hoveredId = wid;
+
+        if (gui->mouseClicked && gui->activeId == SMOL_GUI_INVALID_WIDGET) {
+            gui->activeId = wid;
+        }
+    }
+
+    int result = 0;
+    if (smol_gui_is_mouse_down(gui, wid)) {
+        if (axis & SMOL_GUI_DRAG_AXIS_X == SMOL_GUI_DRAG_AXIS_X) {
+            if (outX) *outX += gui->mouseDelta.x * xStep;
+            result = 1;
+        }
+        if (axis & SMOL_GUI_DRAG_AXIS_Y == SMOL_GUI_DRAG_AXIS_Y) {
+            if (outY) *outY += gui->mouseDelta.y * yStep;
+            result = 1;
+        }
+    }
+
+    return result;
 }
 
 static smol_gui_widget_state smol_gui_widget_state_from_gui(smol_gui_t* gui, const char* id) {
@@ -577,7 +898,7 @@ int smol_gui_button(
     smol_canvas_draw_text(
         canvas,
         bounds.x + (bounds.width / 2 - w / 2),
-        bounds.y + (bounds.height / 2 - h / 2) + 1,
+        bounds.y + (bounds.height / 2 - h / 2),
         1,
         text
     );
@@ -585,6 +906,92 @@ int smol_gui_button(
     smol_canvas_pop_color(canvas);
 
     return result;
+}
+
+static int smol_gui_slider(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    smol_number_t* value,
+    smol_number_t minValue, smol_number_t maxValue,
+    smol_number_t step
+) {
+    const int btnWidth = 16;
+
+    int changed = 0;
+    int held = smol_gui_holdable_area(gui, id, bounds);
+
+    smol_number_t maxMin = smol_number_sub(maxValue, minValue);
+
+    if (held) {
+        smol_number_t oldValue = *value;
+
+        double normX = (double)(gui->mousePosition.x - bounds.x) / (bounds.width - btnWidth);
+
+        *value = smol_number_add(minValue, smol_number_muls(maxMin, normX));
+        *value = smol_number_snap(*value, step);
+        *value = smol_number_max(smol_number_min(*value, maxValue), minValue);
+
+        if (smol_number_diff(oldValue, *value)) changed = 1;
+    }
+
+    double normVal = smol_number_norm(*value, minValue, maxValue);
+    smol_grect_t prog = smol_rect(bounds.x, bounds.y, normVal * (bounds.width - btnWidth + 1), bounds.height);
+
+    smol_gui_draw_style(gui, SMOL_GUI_STYLE_PATCH_TYPE_SECONDARY_CONTAINER, SMOL_GUI_WIDGET_STATE_IDLE, bounds);
+    smol_gui_draw_style(gui, SMOL_GUI_STYLE_PATCH_TYPE_PROGRESS_BAR, SMOL_GUI_WIDGET_STATE_IDLE, prog);
+
+    smol_gui_draw_style(
+        gui, SMOL_GUI_STYLE_PATCH_TYPE_BUTTON, SMOL_GUI_WIDGET_STATE_IDLE,
+        smol_rect(bounds.x + normVal * (bounds.width - btnWidth), bounds.y, btnWidth, bounds.height)
+    );
+
+    return changed;
+}
+
+#define _SMOL_GUI_SLIDER_IMPL(vl, T) \
+smol_number_t nvalue; nvalue.type = T; \
+nvalue.##vl = *value; \
+smol_number_t nmin; nmin.type = T; \
+nmin.##vl = minValue; \
+smol_number_t nmax; nmax.type = T; \
+nmax.##vl = maxValue; \
+smol_number_t nstep; nstep.type = T; \
+nstep.##vl = step; \
+int result = smol_gui_slider( \
+    gui, id, bounds, \
+    &nvalue, nmin, nmax, nstep \
+); \
+*value = nvalue.##vl; \
+return result
+
+int smol_gui_slideri(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    smol_i64* value,
+    smol_i64 minValue, smol_i64 maxValue,
+    smol_i64 step
+) {
+    _SMOL_GUI_SLIDER_IMPL(intValue, SMOL_NUMBER_TYPE_INT);
+}
+
+int smol_gui_sliderf(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    float* value,
+    float minValue, float maxValue,
+    float step
+) {
+    _SMOL_GUI_SLIDER_IMPL(floatValue, SMOL_NUMBER_TYPE_FLOAT);
+}
+
+int smol_gui_sliderd(
+    smol_gui_t* gui, const char* id,
+    smol_grect_t bounds,
+    double* value,
+    double minValue, double maxValue,
+    double step
+) {
+    _SMOL_GUI_SLIDER_IMPL(doubleValue, SMOL_NUMBER_TYPE_DOUBLE);
 }
 
 #endif

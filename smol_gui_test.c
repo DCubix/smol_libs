@@ -46,6 +46,12 @@ int main() {
             printf("Clicked!\n");
         }
 
+        static int value = 0;
+        smol_gui_slideri(&gui, "slider", smol_rect(10, 40, 120, 22), &value, 0, 10, 1);
+
+		static double value2 = 0.0;
+        smol_gui_sliderd(&gui, "slider2", smol_rect(10, 70, 120, 22), &value2, 0.0, 1.0, 0.5);
+
         smol_gui_end(&gui);
 
 		smol_canvas_present(&canvas, frame);
