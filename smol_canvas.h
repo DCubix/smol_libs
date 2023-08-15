@@ -665,6 +665,7 @@ SMOL_INLINE void smol_image_blend_pixel(smol_image_t* img, smol_u32 x, smol_u32 
 }
 
 SMOL_INLINE smol_pixel_t smol_image_getpixel(smol_image_t* img, smol_u32 x, smol_u32 y) {
+	if (!img->pixel_data) return SMOLC_MAGENTA;
 	return img->pixel_data[x + y * img->width];
 }
 

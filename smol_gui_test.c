@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 
 #define SMOL_FRAME_IMPLEMENTATION
@@ -42,24 +43,18 @@ int main() {
 
         smol_gui_begin(&gui);
 
-		smol_gui_draw_text_ww(
-			&gui,
-			"Hello World this is a wors-wrapping text. This is only a test, so it wraps into a bounding box.",
-			SMOL_GUI_TEXT_ALIGN_CENTER, SMOL_GUI_TEXT_ALIGN_CENTER,
-			SMOL_GUI_STYLE_PATCH_TYPE_BUTTON,
-			SMOL_GUI_WIDGET_STATE_IDLE,
-			smol_rect(10, 100, 200, 100)
-		);
-
-        if (smol_gui_button(&gui, "test", "Button", smol_rect(10, 10, 120, 24))) {
+        if (smol_gui_button(&gui, "test", "Please Click This Button", smol_rect(10, 10, 160, 60))) {
             printf("Clicked!\n");
         }
 
-        static int value = 0;
+       /* static int value = 0;
         smol_gui_slideri(&gui, "slider", smol_rect(10, 40, 120, 22), &value, 0, 10, 1);
 
 		static double value2 = 0.0;
-        smol_gui_sliderd(&gui, "slider2", smol_rect(10, 70, 120, 22), &value2, 0.0, 1.0, 0.5);
+        smol_gui_sliderd(&gui, "slider2", smol_rect(10, 70, 120, 22), &value2, 0.0, 1.0, 0.05);
+
+		static float value3 = 0.0;
+        smol_gui_sliderf(&gui, "slider3", smol_rect(10, 100, 120, 22), &value3, 0.0f, 1.0f, 0.01f);*/
 
         smol_gui_end(&gui);
 
