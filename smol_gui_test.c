@@ -42,6 +42,15 @@ int main() {
 
         smol_gui_begin(&gui);
 
+		smol_gui_draw_text_ww(
+			&gui,
+			"Hello World this is a wors-wrapping text. This is only a test, so it wraps into a bounding box.",
+			SMOL_GUI_TEXT_ALIGN_CENTER, SMOL_GUI_TEXT_ALIGN_CENTER,
+			SMOL_GUI_STYLE_PATCH_TYPE_BUTTON,
+			SMOL_GUI_WIDGET_STATE_IDLE,
+			smol_rect(10, 100, 200, 100)
+		);
+
         if (smol_gui_button(&gui, "test", "Button", smol_rect(10, 10, 120, 24))) {
             printf("Clicked!\n");
         }
