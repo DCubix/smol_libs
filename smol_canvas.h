@@ -1660,7 +1660,12 @@ smol_image_t smol_load_image_qoi(const char* file_path) {
 #ifdef SMOL_UTILS_H
 	buffer = smol_read_entire_file(file_path, &size);
 #else 
+#ifdef _CRT_SECURE_NO_WARNINGS
 	FILE* f = fopen(file_path, "r");
+#else 
+	FILE* f;
+	fopen_s(&f, file_path, "r");
+#endif 
 	if(!f)
 		return res;
 
@@ -1691,7 +1696,7 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 	const smol_u8* data = (const char*)buffer;
 #define PEEK_BYTES(ptr, count) memcpy(ptr, (const void*)data, count) 
 #define READ_BYTES(ptr, count) PEEK_BYTES(ptr, count), data += count
-#define GET_CHAR() ((data - buffer) < length ? (*data++) : -1)
+#define GET_CHAR() ((data - (const smol_u8*)buffer) < length ? (*data++) : -1)
 #define SEEK_CUR(dir) (data += dir)
 
 
@@ -1741,10 +1746,10 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 
 			switch(tag) {
 				case 0x00: {
-					char byte =  GET_CHAR();
-					if(byte == 0x1)
+					smol_u8 bytes[7] = { 0 };
+					PEEK_BYTES(bytes, 7);
+					if(bytes[6] == 0x1)
 						goto end; //End of file
-					SEEK_CUR(-1);
 				} break;
 				case 0xFE: { //RGB
 
@@ -1754,7 +1759,8 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 
 					index = HASH_RGBA(rgb[0], rgb[1], rgb[2], 255);
 					smol_pixel_t new_pixel = smol_rgba( rgb[0], rgb[1], rgb[2], 255 );
-
+				
+					SMOL_ASSERT(pixel_index < (width*height));
 					pixel_data[pixel_index++] = new_pixel;
 					last_pixel = new_pixel;
 					STORE_PIXEL(index, new_pixel);
@@ -1768,7 +1774,8 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 					index = HASH_RGBA(rgba[0], rgba[1], rgba[2], rgba[3]);
 					smol_pixel_t new_pixel = smol_rgba( rgba[0], rgba[1], rgba[2], rgba[3] );
 
-
+					
+					SMOL_ASSERT(pixel_index < (width*height));
 					pixel_data[pixel_index++] = new_pixel;
 					last_pixel = new_pixel;
 					STORE_PIXEL(index, new_pixel);
@@ -1779,6 +1786,8 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 				case 0: { //Index
 					smol_u8 array_index = tag & 0x3F;
 					smol_pixel_t new_pixel = pixel_hashtable[array_index];
+					
+					SMOL_ASSERT(pixel_index < (width*height));
 					pixel_data[pixel_index++] = new_pixel;
 					last_pixel = new_pixel;
 
@@ -1795,6 +1804,8 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 					new_pixel.b += db;
 					new_pixel.a = last_pixel.a;
 
+					
+					SMOL_ASSERT(pixel_index < (width*height));
 					pixel_data[pixel_index++] = new_pixel;
 					last_pixel = new_pixel;
 					HASH_STORE_PIXEL(new_pixel);
@@ -1812,7 +1823,8 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 					new_pixel.r += dr;
 					new_pixel.g += dg;
 					new_pixel.b += db;
-
+					
+					SMOL_ASSERT(pixel_index < (width*height));
 					pixel_data[pixel_index++] = new_pixel;
 					last_pixel = new_pixel;
 					HASH_STORE_PIXEL(new_pixel);
@@ -1822,6 +1834,8 @@ smol_image_t smol_load_image_qoi_from_memory(const void* buffer, smol_size_t len
 					smol_u8 run_len = tag & 0x3F;
 					
 					for(smol_u8 i = 0; i < run_len+1; i++) {
+						
+						SMOL_ASSERT(pixel_index < (width*height));
 						pixel_data[pixel_index++] = last_pixel;
 					}
 
