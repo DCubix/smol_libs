@@ -39,7 +39,7 @@ int main() {
 		}
 
         smol_canvas_set_blend(&canvas, smol_pixel_blend_mix);
-		smol_canvas_clear(&canvas, SMOL_RGB(80, 80, 80));
+		smol_canvas_clear(&canvas, SMOL_RGB(50, 50, 50));
 
         smol_gui_begin(&gui);
 

@@ -521,10 +521,7 @@ void smol_gui_draw_style(
     }
 }
 
-typedef struct _span_t {
-    size_t position; size_t length;
-    size_t width, height;
-} span_t;
+typedef smol_span(char) char_span_t;
 
 int _char_is_any_of(const char* str, char ch) {
     for (size_t i = 0; i < strlen(str); i++) {
@@ -533,13 +530,13 @@ int _char_is_any_of(const char* str, char ch) {
     return 0;
 }
 
-int smol_span_find_next(const char* buf, const char* delim, span_t* span) {
-    span->position += span->length + 1;
-    span->length = 0;
+int smol_span_find_next(const char* delim, char_span_t* span) {
+    span->data += span->count;
+    span->count = 0;
 
-#define current buf[span->position + span->length]
+#define current span->data[span->count]
     while (current != 0 && !_char_is_any_of(delim, current)) {
-        span->length++;
+        span->count++;
     }
     if (current == 0) return 0; // not found
     return 1;
@@ -557,48 +554,56 @@ static void smol_gui_draw_text_ww(
     smol_gui_style_t style = gui->theme.styles[patchType][widgetState];
     const char* delim = " \t";
 
-    span_t ptr;
-    memset(&ptr, 0, sizeof(span_t));
-    smol_span_find_next(text, delim, &ptr);
+    char_span_t ptr;
+    ptr.count = 0;
+    ptr.data = text;
 
-    smol_vector(span_t) lines;
+    smol_vector(char_span_t) lines;
     smol_vector_init(&lines, 128);
 
-#define lastChar (*(text + currentSpan.position + currentSpan.length - 1))
+#define lastChar (*(currentSpan.data + currentSpan.count - 1))
 #define pushline(sw) do {\
     size_t adv = 0; \
     if (lastChar == ' ' || lastChar == '\0') { \
-        currentSpan.length--; \
-        currentSpan.width -= sw; \
+        currentSpan.count--; \
+        currentWidth -= sw; \
         adv++; \
     } \
-    currentSpan.height = h; \
     smol_vector_push(&lines, currentSpan); \
-    currentSpan.position += currentSpan.length + adv; \
-    currentSpan.length = 0; \
-    currentSpan.width = 0; \
+    currentSpan.data += currentSpan.count + adv; \
+    currentSpan.count = 0; \
+    currentWidth = 0; \
+    totalHeight += h; \
 } while (0)
 
     int spaceW, spaceH;
     smol_text_size(gui->canvas, 1, " ", &spaceW, &spaceH);
 
     int w, h;
-    span_t currentSpan;
-    memset(&currentSpan, 0, sizeof(span_t));
+    char_span_t currentSpan;
+    memset(&currentSpan, 0, sizeof(char_span_t));
+
+    currentSpan.data = ptr.data;
+
+    int currentWidth = 0,
+        totalHeight = 0;
 
     while (1) {
+        smol_span_find_next(delim, &ptr);
+
         char txt[1024] = { 0 };
-        strncpy(txt, text + ptr.position, ptr.length);
+        strncpy(txt, ptr.data, ptr.count);
 
         smol_text_size(gui->canvas, 1, txt, &w, &h);
-        if (currentSpan.width + w >= bounds.width) {
+        if (currentWidth + w >= bounds.width) {
             pushline(spaceW);
         }
 
         size_t len = strlen(txt);
 
-        currentSpan.width += w + spaceW;
-        currentSpan.length += len + 1;
+        currentWidth += w + spaceW;
+        currentSpan.count += len + 1;
+        ptr.count++; // include space
 
         for (size_t i = 0; i < len; i++) {
             if (txt[i] == '\n') {
@@ -607,17 +612,10 @@ static void smol_gui_draw_text_ww(
             }
         }
 
-        if (!smol_span_find_next(text, delim, &ptr)) {
-            break;
-        }
+        if (ptr.data[ptr.count] == NULL) break;
     }
 
     pushline(spaceW);
-
-    int totalHeight = 0;
-    span_t* lineData = smol_vector_iterate(&lines, i) {
-        totalHeight += lineData[i].height;
-    };
 
     int y = 0;
     switch (valign) {
@@ -632,23 +630,27 @@ static void smol_gui_draw_text_ww(
     smol_canvas_push_scissor(gui->canvas);
     smol_canvas_set_scissor(gui->canvas, bounds.x, bounds.y, bounds.width, bounds.height);
     
-    lineData = smol_vector_iterate(&lines, i) {
+    char_span_t* lineData = smol_vector_iterate(&lines, i) {
+        char txt[4096] = { 0 };
+        strncpy(txt, lineData[i].data, lineData[i].count);
+
+        int lw, lh;
+        smol_text_size(gui->canvas, 1, txt, &lw, &lh);
+
         int x = 0;
         switch (halign) {
             case SMOL_GUI_TEXT_ALIGN_NEAR: x = 0; break;
-            case SMOL_GUI_TEXT_ALIGN_CENTER: x = bounds.width / 2 - lineData[i].width / 2; break;
-            case SMOL_GUI_TEXT_ALIGN_FAR: x = bounds.width - lineData[i].width; break;
+            case SMOL_GUI_TEXT_ALIGN_CENTER: x = bounds.width / 2 - lw / 2; break;
+            case SMOL_GUI_TEXT_ALIGN_FAR: x = bounds.width - lw; break;
         }
 
         smol_canvas_draw_text_formated(
-            gui->canvas, x + bounds.x, y + bounds.y, 1, "%.*s", lineData[i].length, text + lineData[i].position
+            gui->canvas, x + bounds.x, y + bounds.y, 1, "%.*s", lineData[i].count, lineData[i].data
         );
 
-        y += lineData[i].height;
+        y += lh;
     };
     smol_canvas_pop_scissor(gui->canvas);
-
-    //smol_canvas_draw_rect(gui->canvas, bounds.x, bounds.y, bounds.width, bounds.height);
 
     smol_canvas_pop_color(gui->canvas);
 
