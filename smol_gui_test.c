@@ -39,18 +39,18 @@ int main() {
 		}
 
         smol_canvas_set_blend(&canvas, smol_pixel_blend_mix);
-		smol_canvas_clear(&canvas, SMOL_RGB(147, 147, 147));
+		smol_canvas_clear(&canvas, SMOL_RGB(80, 80, 80));
 
         smol_gui_begin(&gui);
 
-        if (smol_gui_button(&gui, "test", "Please Click This Button", smol_rect(10, 10, 160, 60))) {
+        if (smol_gui_button(&gui, "test", "Please Click This Button", smol_rect(10, 10, 120, 42))) {
             printf("Clicked!\n");
         }
 
-       /* static int value = 0;
-        smol_gui_slideri(&gui, "slider", smol_rect(10, 40, 120, 22), &value, 0, 10, 1);
+        static int value = 0;
+        smol_gui_slideri(&gui, "slider", smol_rect(10, 140, 120, 22), &value, 0, 10, 1);
 
-		static double value2 = 0.0;
+		/* static double value2 = 0.0;
         smol_gui_sliderd(&gui, "slider2", smol_rect(10, 70, 120, 22), &value2, 0.0, 1.0, 0.05);
 
 		static float value3 = 0.0;
